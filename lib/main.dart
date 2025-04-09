@@ -6,6 +6,8 @@ import 'package:shared/services/notification_service.dart';
 import 'package:shared/auth.dart';
 import 'package:page_transition/page_transition.dart';
 import 'screens/product_inventory_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'package:shared/config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,15 +81,15 @@ class FreshFamilyFarmerApp extends StatelessWidget {
       ),
       initialRoute: _getInitialRoute(),
       routes: {
-        '/onboarding': (context) => const OnboardingScreen(appType: 'farmer'),
-        '/login': (context) => const LoginScreen(
+        '/onboarding': (context) => const FarmerOnboardingScreen(),
+        '/login': (context) => LoginScreen(
               appName: appConfig['appName'],
-              appLogo: 'assets/images/logo.png',
+              appLogo: 'images/logo.png',
               appType: 'farmer',
             ),
-        '/register': (context) => const RegisterScreen(
+        '/register': (context) => RegisterScreen(
               appName: appConfig['appName'],
-              appLogo: 'assets/images/logo.png',
+              appLogo: 'images/logo.png',
               appType: 'farmer',
             ),
         '/dashboard': (context) => const DashboardScreen(),
@@ -114,11 +116,9 @@ class FreshFamilyFarmerApp extends StatelessWidget {
             child: ResetPasswordScreen(email: email, token: token),
           );
         } else if (settings.name == '/inventory_detail') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          final productId = args?['productId'] ?? '';
           return PageTransition(
-            type: PageTransitionType.rightToLeft,
-            child: ProductInventoryScreen(productId: productId),
+            type: PageTransitionType.fade,
+            child: ProductInventoryScreen(),
           );
         }
         return null;

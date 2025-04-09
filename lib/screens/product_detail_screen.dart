@@ -21,7 +21,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _inventoryController = TextEditingController();
-  String _selectedCategory = 'Vegetables';
+  Set<String> _selectedCategories = {'Vegetables'};
   bool _isOrganic = false;
   bool _isAvailable = true;
   bool _isLoading = false;
@@ -47,7 +47,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _priceController.text = (widget.product!['price'] ?? 0.0).toString();
       _inventoryController.text =
           (widget.product!['inventory'] ?? 0).toString();
-      _selectedCategory = widget.product!['category'] ?? 'Vegetables';
+      
+      // Handle multiple categories if they exist
+      if (widget.product!['categories'] != null && widget.product!['categories'] is List) {
+        _selectedCategories = Set<String>.from(widget.product!['categories']);
+      } else if (widget.product!['category'] != null) {
+        // For backward compatibility with single category
+        _selectedCategories = {widget.product!['category']};
+      }
+      
       _isOrganic = widget.product!['isOrganic'] ?? false;
       _isAvailable = widget.product!['isAvailable'] ?? true;
     }
@@ -67,6 +75,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
+    if (_selectedCategories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one category')),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -77,7 +92,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         'description': _descriptionController.text,
         'price': double.parse(_priceController.text),
         'inventory': int.parse(_inventoryController.text),
-        'category': _selectedCategory,
+        'categories': _selectedCategories.toList(),  // Send as list
+        'category': _selectedCategories.first,  // For backwards compatibility
         'isOrganic': _isOrganic,
         'isAvailable': _isAvailable,
         'farmerId': 1, // Would come from auth
@@ -86,7 +102,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (widget.isEditing && widget.product != null) {
         // Update existing product
         final productId = widget.product!['id'];
-        await _apiService.put('/products/$productId', productData);
+        await _apiService.put(
+          '/products/$productId', 
+          body: productData,
+          authenticated: true,
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Product updated successfully')),
@@ -94,7 +114,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         }
       } else {
         // Add new product
-        await _apiService.post('/products', productData);
+        await _apiService.post(
+          '/products', 
+          body: productData,
+          authenticated: true,
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Product added successfully')),
@@ -159,23 +183,65 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
+              const Text(
+                'Product Categories',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-                items: _categories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
+                children: _categories.map((category) {
+                  final isSelected = _selectedCategories.contains(category);
+                  return FilterChip(
+                    label: Text(category),
+                    selected: isSelected,
+                    selectedColor: Colors.green.withAlpha(76), // 0.3 * 255 ≈ 76
+                    checkmarkColor: Colors.green.shade800,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedCategories.add(category);
+                        } else {
+                          // Don't allow removing the last category
+                          if (_selectedCategories.length > 1) {
+                            _selectedCategories.remove(category);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Select at least one category'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      });
+                    },
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value!;
-                  });
-                },
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade800, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Select multiple categories to help customers find your product more easily',
+                        style: TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
